@@ -34,7 +34,7 @@ class Event:
             self.collections[collection_name] = listFrom(self.lcio_evt.getCollection(collection_name))
             return (o for o in self.collections[collection_name])
     
-    def getCollectionNames(self):
+    def collectionNames(self):
         return vecToList(self.lcio_evt.getCollectionNames())
     
     def getCollection(self,collection_name):
