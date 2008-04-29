@@ -44,31 +44,24 @@ class Event:
         try:
             return self.objects[lc_object_id]
         except AttributeError:
-            collections = [self.lcio_evt.getCollection(name) for name in self.getCollectionNames()]
+            collections = [self.lcio_evt.getCollection(name) for name in self.collectionNames()]
             objects = [listFrom(collection) for collection in collections]
             objects = chain(*objects)
             self.objects = {}
             for obj in objects: self.objects[obj.id()] = obj
             return self.objects[lc_object_id]
         
-    def getRelatedTo(self,lc_object):
+    def getRelatedTo(self,lc_object,collection_names=None):
+        if not collection_names:
+           collection_names = [name for name in self.collectionNames()
+                               if self.getCollection(name).getTypeName() == "LCRelation"]
         try:
-            return self.relatedTo[lc_object]
+            return self.relatedTo[(lc_object,tuple(collection_names))]
         except KeyError:
-            try:
-                relations = self.relations
-            except AttributeError:
-                #Get all relation collections and put all the relations in one list
-                collections = [self.lcio_evt.getCollection(name)
-                               for name in self.getCollectionNames()]
-                relations = [listFrom(collection)
-                             for collection in collections 
-                             if collection.getTypeName() == "LCRelation"]
-                #flatten the list
-                relations = chain(*relations)
-                #remove duplicates
-                relations = list(set(relations))
-                self.relations = relations
+            relations = [self[collection]
+                         for collection in collection_names]
+            #flatten the list
+            relations = list(chain(*relations))
             #We need to get relations with our object in both the from and to:
             related_from = [relation.getFrom()
                             for relation in relations
@@ -76,15 +69,13 @@ class Event:
             related_to = [relation.getTo()
                           for relation in relations 
                           if relation.getFrom().id() == lc_object.id()]
-            related = related_from +  related_to
-            #remove dups
-            related = list(set(related))
+            related = related_from + related_to
             #We have LCObjects - would be better if they were the sub-class
             related = [self.getObjectByID(obj.id())
                        for obj in related]
-            self.relatedTo[lc_object] = related
+            self.relatedTo[(lc_object,tuple(collection_names))] = related
             return related
-    
+
     def getObjFromID(self,idn, collection):
         objs = list(self[collection])
         ids = [obj.id() for obj in objs]
@@ -94,11 +85,11 @@ class Event:
         corresponding_collection = list(self[corresponding_collection])
         #find which collection the original_object is in
         collections = [genFrom(self.getCollection(name))
-                       for name in self.getCollectionNames()
+                       for name in self.collectionNames()
                        if self.getCollection(name).getNumberOfElements() == len(corresponding_collection)]
         is_in_collection = [original_object.id() in [obj.id() for obj in collection] for collection in collections]
         collections = [self[name]
-                       for name in self.getCollectionNames()
+                       for name in self.collectionNames()
                        if self.getCollection(name).getNumberOfElements() == len(corresponding_collection)]
         #If this fails then no collection that contained the object    
         containing_collection = list(collections[is_in_collection.index(True)])

@@ -1,7 +1,8 @@
+import collectionnames
 import copy
 import lciotools as lc
-import benmath as bm
-
+import math_utils as um
+import mcana as mc
 
 #get vertex number of a given rp in an event
 #0 for ip, -ve for not in a vertex
@@ -24,8 +25,8 @@ def getCorrectParent(mcp):
         #pick the parent which is furthest from the IP if same return the first
         (flen,furthest) = (-1,0)
         for par in pars:
-            if bm.threeDRadius(par.getVertex()) > flen:
-                (flen,furthest) = (bm.threeDRadius(par.getVertex()),par)
+            if um.threeDRadius(par.getVertex()) > flen:
+                (flen,furthest) = (um.threeDRadius(par.getVertex()),par)
         return furthest
     else:
         #An expection here means we made it to the root of the event
@@ -35,33 +36,34 @@ def getCorrectParent(mcp):
 def flavourOfParentVertex(event,rp):
     #note cannot just check direct parent due to resonances etc.
     track = rp.getTracks()[0]
-    mcps = event.getRelatedTo(track)
+    mcps = event.getRelatedTo(track,[collectionnames.trackmcpcollection,])
     mcp = mcps[0]
     mcp = getCorrectParent(mcp)
     #need to find the first parent that has a length unless we reach the IP (-1 quark type)
-    while lc.quarkType(mcp.getPDG()) != -1 and mcp.getVertex() == mcp.getEndpoint():
+    while mc.quarkType(mcp.getPDG()) != -1 and mcp.getVertex() == mcp.getEndpoint():
         mcp = getCorrectParent(mcp)
-    return lc.quarkType(mcp.getPDG())
+    return mc.quarkType(mcp.getPDG())
 
 def mcVertexNumber(event,rp):
     track = rp.getTracks()[0]
-    mcps = event.getRelatedTo(track)
+    mcps = event.getRelatedTo(track,[collectionnames.trackmcpcollection,])
     mcp = mcps[0]
     v = mcp.getVertex()
     #Go back through the tree counting all none resonant decays
     v_num = 0
-    while lc.quarkType(mcp.getPDG()) != -1:
+    while mc.quarkType(mcp.getPDG()) != -1:
         #print mcp.getPDG()
         mcp = getCorrectParent(mcp)
-        if bm.threeDRadius(bm.sub(mcp.getVertex(),mcp.getEndpoint())) > 0.0000000001 : v_num += 1
+        if um.threeDRadius(um.sub(mcp.getVertex(),mcp.getEndpoint())) > 0.0000000001 : v_num += 1
     #print flavourOfParentVertex(event,rp) , v_num, v
     return v_num
     
 def numberOfVertices(decay_chain):
+    #Have to compare by id
     return len(set([rp.getStartVertex().id() for rp in decay_chain.getParticles()]))
     
 class vertexTable:
-    def __init__(self,input_jet_rp_collection,decay_chain_collection, table_type="ParentFlavour"):
+    def __init__(self,input_jet_rp_collection,decay_chain_collection, table_type="Parent_Flavour"):
         self.input_jet_rp_collection = input_jet_rp_collection
         self.decay_chain_collection = decay_chain_collection
         self.table_type = table_type
@@ -110,7 +112,7 @@ class vertexTable:
     def printDiffTo(self, other):
         return [[[m-d for (m,d) in zip(rowm,rowd)]for (rowm,rowd) in zip(subtm,subtd)]for (subtm,subtd) in zip(self.normalisedTable(),other.normalisedTable())]
 
-def vertexTables(event_gen, input_jet_rp_collection, decay_chain_collection, table_type = "ParentFlavour"):
+def vertexTables(event_gen, input_jet_rp_collection, decay_chain_collection, table_type = "Parent_Flavour"):
     tables = {}
     for name in ["ALL", "B", "D", "UDS"]:
         tables[name] = vertexTable(input_jet_rp_collection, decay_chain_collection, table_type)

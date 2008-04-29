@@ -140,34 +140,5 @@ def printMCTree(mcps,filename="temp.dot"):
     sp.call(['dot', '-Tpng', filename],stdout = f)
     f.close()
     sp.call(['eog', filename+".png"])
-    
-    
-
-
-
-
-
-
-
-def mcVertices_NotInCalo_FromIP(evt):
-    mcps = evt["MCParticle"]
-    #mcps = [mcp for mcp in mcps if fromIP(mcp)]
-    #mcps = [mcp for mcp in mcps if fromHeavy(mcp)]
-    mcps = [mcp for mcp in mcps if mcp.getPDG() != 22]
-    #mcps = [mcp for mcp in mcps if mu.threeDRadius(mcp.getVertex()) < 100]
-    return mcps
-
-
-def mcVertices_NonGamma_NonPointLike_NotInCalo_FromIP(evt):
-    mcps = evt["MCParticle"]
-    mcps = [mcp for mcp in mcps if fromIP(mcp)]
-    mcps = [mcp for mcp in mcps if mcp.getPDG() != 22]
-    #mcps = [mcp for mcp in mcps if mu.threeDRadius(mu.sub(mcp.getVertex(),mcp.getEndpoint())) > 0.01]
-    mcps = [mcp for mcp in mcps if mu.threeDRadius(mcp.getVertex()) < 100]
-    return mCVertices(mcps)
-    
-def printVerts(vs):
-    for v in sorted(vs.iterkeys(),sortByFunc(mu.threeDRadius)):
-        print mu.threeDRadius(v), [lc.pdgToName(mc.getPDG()) for mc in vs[v][0].getParents()], "->", [lc.pdgToName(mc.getPDG()) for mc in vs[v]] 
 
 
