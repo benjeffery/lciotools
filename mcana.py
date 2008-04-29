@@ -1,5 +1,5 @@
 import lciotools as lc
-from math_utils import *
+import math_utils as mu
 import exceptions
 import subprocess as sp
 from copy import copy
@@ -10,6 +10,14 @@ class BadJetFinding(exceptions.Exception):
     def __str__(self):
 		print "",msg
 
+def quarkType(pdg):
+    if pdg in (91,92,93): return -1
+    pdg = str(abs(pdg))
+    if len(pdg) == 1: return int(pdg)
+    if len(pdg) == 2: return 0
+    if len(pdg) == 4: return int(pdg[:1])
+    return int(pdg[-3])
+    
 def getTrueJetFlavour(event, jet):
     return lc.pdgToName(event.getCorrespondingObject(jet,"TrueJetFlavour")[0])
     
@@ -29,7 +37,7 @@ def getMCHeavyPartonOf(event,jet):
     
     partons = [findParton(mcp) for mcp in mcps]
     partons = [p.id() for p in partons
-               if lc.quarkType(p.getPDG()) > 3]
+               if quarkType(p.getPDG()) > 3]
     #return partons
     unique_set = set(partons)
     if len(unique_set) > 1: raise BadJetFinding("More than one parton associated with jet")
@@ -42,12 +50,12 @@ def getMCHeavyPartonOf(event,jet):
 def getHeavyHadronDecayLength(mcp):
     #True if flavour change
     start = mcp.getVertex()
-    same_flavour = [lc.quarkType(d.getPDG()) == lc.quarkType(mcp.getPDG()) for d in mcp.getDaughters()]
+    same_flavour = [quarkType(d.getPDG()) == quarkType(mcp.getPDG()) for d in mcp.getDaughters()]
     while any(same_flavour):
         mcp = mcp.getDaughters()[same_flavour.index(True)]
-        same_flavour = [lc.quarkType(d.getPDG()) == lc.quarkType(mcp.getPDG()) for d in mcp.getDaughters()]
+        same_flavour = [quarkType(d.getPDG()) == quarkType(mcp.getPDG()) for d in mcp.getDaughters()]
     end = mcp.getEndpoint()
-    return threeDRadius(sub(start,end))
+    return mu.threeDRadius(mu.sub(start,end))
     
     
 def mCVertices(mcps):
@@ -57,14 +65,14 @@ def mCVertices(mcps):
         #check that there is not a key that is below the threshold
         nearkeys = (key
                     for key in vertices.iterkeys()
-                    if threeDRadius(sub(mcp.getVertex(),key)) < 0.0000001)
+                    if mu.threeDRadius(mu.sub(mcp.getVertex(),key)) < 0.0000001)
         try:
             vertices[nearkeys.next()].append(mcp)
         except StopIteration:
             try:
                 vertices[mcp.getVertex()].append(mcp)
             except KeyError:
-                vertices[mcp.getVertex()] =  [mcp,]
+                vertices[mcp.getVertex()] = [mcp,]
     return vertices
 
 def fromIP(mcp):
@@ -76,10 +84,10 @@ def fromIP(mcp):
     return False
 
 def fromHeavy(mcp):
-    if lc.quarkType(mcp.getPDG()) > 3: return True
+    if quarkType(mcp.getPDG()) > 3: return True
     if mcp.getPDG() == 92: return True
     while mcp.getParents() and mcp.getPDG() != 92:
-        if lc.quarkType(mcp.getParents()[0].getPDG()) > 3: 
+        if quarkType(mcp.getParents()[0].getPDG()) > 3: 
             return True
         mcp = mcp.getParents()[0]
     return False
@@ -94,7 +102,7 @@ def printMCTree(mcps,filename="temp.dot"):
     for mcp in mcps:
         name = str(mcp.id())
         label = lc.pdgToName(mcp.getPDG())
-        colour= colors[lc.quarkType(mcp.getPDG())]
+        colour= colors[quarkType(mcp.getPDG())]
         f.write('"'+name+'" [ label="'+label+' '+str(len(mcp.getParents()))+'",style="filled",color="'+colour+'" ];\n')
     #idn = 0
     #mcp_ids = [mcp.id() for mcp in mcps]
@@ -105,14 +113,14 @@ def printMCTree(mcps,filename="temp.dot"):
     #        for daughter in daughters:
     #            f.write(str(daughter.id())+';\n')
     #        f.write('}\n')
-    #        f.write(str(mcp.id())+'->'+str(daughter.id())+' [ lhead=cluster'+str(idn)+',label = #"'+str(threeDRadius(sub(mcp.getVertex(),mcp.getEndpoint())))[:4]+'" ];')
+    #        f.write(str(mcp.id())+'->'+str(daughter.id())+' [ lhead=cluster'+str(idn)+',label = #"'+str(mu.threeDRadius(sub(mcp.getVertex(),mcp.getEndpoint())))[:4]+'" ];')
     #        idn += 1
 
     #make a node in each cluster
     #idn = 0
     #for vert in mCVertices(mcps).itervalues():
     #    #we need to remove the ones that leave this vertex
-    #    #vert = [mcp for mcp in vert if threeDRadius(sub(mcp.getVertex(),mcp.getEndpoint())) < 0.00000001]
+    #    #vert = [mcp for mcp in vert if mu.threeDRadius(sub(mcp.getVertex(),mcp.getEndpoint())) < 0.00000001]
     #    if len(vert) > 1:
     #        f.write('subgraph cluster'+str(idn)+'{\n')
     #        for mcp in vert:
@@ -124,7 +132,7 @@ def printMCTree(mcps,filename="temp.dot"):
     for mcp in mcps:
         for parent in mcp.getParents():
      #       if fromIP(parent):
-                f.write(str(parent.id())+'->'+str(mcp.id())+' [ label = "'+str(threeDRadius(sub(parent.getVertex(),parent.getEndpoint())))[:4]+'" ];')
+                f.write(str(parent.id())+'->'+str(mcp.id())+' [ label = "'+str(mu.threeDRadius(mu.sub(parent.getVertex(),parent.getEndpoint())))[:4]+'" ];')
     #end graph
     f.write('}\n')
     f.close()
@@ -146,7 +154,7 @@ def mcVertices_NotInCalo_FromIP(evt):
     #mcps = [mcp for mcp in mcps if fromIP(mcp)]
     #mcps = [mcp for mcp in mcps if fromHeavy(mcp)]
     mcps = [mcp for mcp in mcps if mcp.getPDG() != 22]
-    #mcps = [mcp for mcp in mcps if threeDRadius(mcp.getVertex()) < 100]
+    #mcps = [mcp for mcp in mcps if mu.threeDRadius(mcp.getVertex()) < 100]
     return mcps
 
 
@@ -154,12 +162,12 @@ def mcVertices_NonGamma_NonPointLike_NotInCalo_FromIP(evt):
     mcps = evt["MCParticle"]
     mcps = [mcp for mcp in mcps if fromIP(mcp)]
     mcps = [mcp for mcp in mcps if mcp.getPDG() != 22]
-    #mcps = [mcp for mcp in mcps if threeDRadius(sub(mcp.getVertex(),mcp.getEndpoint())) > 0.01]
-    mcps = [mcp for mcp in mcps if threeDRadius(mcp.getVertex()) < 100]
+    #mcps = [mcp for mcp in mcps if mu.threeDRadius(mu.sub(mcp.getVertex(),mcp.getEndpoint())) > 0.01]
+    mcps = [mcp for mcp in mcps if mu.threeDRadius(mcp.getVertex()) < 100]
     return mCVertices(mcps)
     
 def printVerts(vs):
-    for v in sorted(vs.iterkeys(),sortByFunc(threeDRadius)):
-        print threeDRadius(v), [lc.pdgToName(mc.getPDG()) for mc in vs[v][0].getParents()], "->", [lc.pdgToName(mc.getPDG()) for mc in vs[v]] 
+    for v in sorted(vs.iterkeys(),sortByFunc(mu.threeDRadius)):
+        print mu.threeDRadius(v), [lc.pdgToName(mc.getPDG()) for mc in vs[v][0].getParents()], "->", [lc.pdgToName(mc.getPDG()) for mc in vs[v]] 
 
 
